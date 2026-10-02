@@ -7,3 +7,27 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
+
+const browserApi = globalThis.browser ?? globalThis.chrome;
+let backgroundPort;
+
+function connectToBackground() {
+	if (backgroundPort) return backgroundPort;
+	backgroundPort = browserApi.runtime.connect({ name: "vcam-page" });
+	backgroundPort.onMessage.addListener((message) => {
+		if (message.type === "frame" || message.type === "config") {
+			window.postMessage({ source: "vcam-extension", ...message }, "*");
+		}
+	});
+	backgroundPort.onDisconnect.addListener(() => { backgroundPort = undefined; });
+	return backgroundPort;
+}
+
+window.addEventListener("message", (event) => {
+	if (event.source !== window || event.data?.source !== "vcam-page") return;
+	const port = connectToBackground();
+	if (event.data.type === "ready") port.postMessage({ type: "page-ready" });
+	if (event.data.type === "request-frame") port.postMessage({ type: "request-frame" });
+});
+
+connectToBackground().postMessage({ type: "page-ready" });
