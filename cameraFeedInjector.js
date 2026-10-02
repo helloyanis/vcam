@@ -9,10 +9,29 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
 */
 
 const browserApi = globalThis.browser ?? globalThis.chrome;
-const defaults = { enabled: true, cameraType: "front", cameraName: "vCam Virtual Camera" };
+const defaults = {
+	enabled: true,
+	disableRealCameras: true,
+	cameraType: "front",
+	cameraName: "vCam Virtual Camera"
+};
 let settings = { ...defaults };
 let latestFrame = createPlaceholderFrame();
 const ports = new Set();
+
+browserApi.action.onClicked.addListener(() => {
+    if(navigator.userAgent.includes("Mobile;")){
+        browserApi.tabs.create({ url: browserApi.runtime.getURL("popup/index.html") });
+    }
+	else{
+        browserApi.windows.create({
+            url: browserApi.runtime.getURL("popup/index.html"),
+            type: "popup",
+            width: 400,
+            height: 600
+        });
+    }
+});
 
 browserApi.storage.local.get(defaults).then((stored) => {
 	settings = { ...defaults, ...stored };
@@ -28,11 +47,11 @@ browserApi.runtime.onConnect.addListener((port) => {
 	ports.add(port);
 	port.onMessage.addListener((message) => {
 		if (message.type === "frame") {
-			latestFrame = message.dataUrl;
-			broadcast({ type: "frame", dataUrl: latestFrame });
+			latestFrame = message.frame;
+			broadcast({ type: "frame", frame: latestFrame });
 		} else if (message.type === "page-ready" || message.type === "request-frame") {
 			port.postMessage({ type: "config", settings });
-			port.postMessage({ type: "frame", dataUrl: latestFrame });
+				port.postMessage({ type: "frame", frame: latestFrame });
 		}
 	});
 	port.onDisconnect.addListener(() => ports.delete(port));

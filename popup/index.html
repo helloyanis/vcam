@@ -16,16 +16,20 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <label><input id="enabled" type="checkbox"> vCam enabled</label>
-    <label>Camera type
-        <select id="cameraType">
-            <option value="front">Front camera</option>
-            <option value="back">Back camera</option>
-        </select>
-    </label>
-    <label>Camera name <input id="cameraName" type="text"></label>
-    <button id="videoFeed" type="button">Video feed</button>
+    <div class="settings">
+        <label><input id="enabled" type="checkbox"> vCam enabled</label>
+        <label><input id="disableRealCameras" type="checkbox"> Disable real cameras</label>
+        <label>Camera type
+            <select id="cameraType">
+                <option value="front">Front camera</option>
+                <option value="back">Back camera</option>
+            </select>
+        </label>
+        <label>Camera name <input id="cameraName" type="text"></label>
+        <button id="videoFeed" type="button">Start video feed</button>
+    </div>
     <p id="status" role="status"></p>
     <script type="module" src="script.js"></script>
+
 </body>
 </html>

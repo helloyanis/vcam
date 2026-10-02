@@ -1,3 +1,7 @@
 html, body {
     color-scheme: light dark;
 }
+.settings {
+    display: flex;
+    flex-direction: column;
+}

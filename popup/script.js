@@ -11,27 +11,36 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
 const browserApi = globalThis.browser ?? globalThis.chrome;
 const elements = {
 	enabled: document.querySelector("#enabled"),
+	disableRealCameras: document.querySelector("#disableRealCameras"),
 	cameraType: document.querySelector("#cameraType"),
 	cameraName: document.querySelector("#cameraName"),
 	videoFeed: document.querySelector("#videoFeed"),
 	status: document.querySelector("#status")
 };
-const defaults = { enabled: true, cameraType: "front", cameraName: "vCam Virtual Camera" };
+const defaults = {
+	enabled: true,
+	disableRealCameras: true,
+	cameraType: "front",
+	cameraName: "vCam Virtual Camera"
+};
 let feedStream;
 let feedVideo;
 let feedCanvas;
 let feedContext;
 let feedPort;
+let feedTimer;
 
 const settings = await browserApi.storage.local.get(defaults);
 elements.enabled.checked = settings.enabled;
+elements.disableRealCameras.checked = settings.disableRealCameras;
 elements.cameraType.value = settings.cameraType;
 elements.cameraName.value = settings.cameraName;
 
-for (const field of [elements.enabled, elements.cameraType, elements.cameraName]) {
+for (const field of [elements.enabled, elements.disableRealCameras, elements.cameraType, elements.cameraName]) {
 	field.addEventListener("change", async () => {
 		const values = {
 			enabled: elements.enabled.checked,
+			disableRealCameras: elements.disableRealCameras.checked,
 			cameraType: elements.cameraType.value,
 			cameraName: elements.cameraName.value.trim() || defaults.cameraName
 		};
@@ -41,6 +50,11 @@ for (const field of [elements.enabled, elements.cameraType, elements.cameraName]
 }
 
 elements.videoFeed.addEventListener("click", async () => {
+	if (feedStream) {
+		stopFeed();
+		return;
+	}
+	try {
 		feedStream?.getTracks().forEach((track) => track.stop());
 		feedStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
 		feedVideo = document.createElement("video");
@@ -54,20 +68,29 @@ elements.videoFeed.addEventListener("click", async () => {
 		feedPort = browserApi.runtime.connect({ name: "vcam-feed" });
 		feedStream.getVideoTracks()[0].addEventListener("ended", stopFeed);
 		elements.status.textContent = "Video feed active";
+		elements.videoFeed.textContent = "Stop video feed";
 		sendFrame();
+	} catch (error) {
+		elements.status.textContent = error.name === "NotAllowedError" ? "Video feed cancelled" : "Unable to start video feed";
+	}
 });
 
 function sendFrame() {
-	if (!feedStream || feedVideo.readyState < 2) return;
+	if (!feedStream || feedVideo.readyState < 2 || !feedPort) return;
 	feedContext.drawImage(feedVideo, 0, 0, feedCanvas.width, feedCanvas.height);
-	feedPort?.postMessage({ type: "frame", dataUrl: feedCanvas.toDataURL("image/jpeg", 0.75) });
-	requestAnimationFrame(sendFrame);
+	feedCanvas.toBlob((blob) => {
+		if (blob && feedStream && feedPort) feedPort.postMessage({ type: "frame", frame: blob });
+	}, "image/jpeg", 0.7);
+	feedTimer = setTimeout(sendFrame, 66);
 }
 
 function stopFeed() {
 	feedStream?.getTracks().forEach((track) => track.stop());
 	feedStream = undefined;
+	clearTimeout(feedTimer);
+	feedTimer = undefined;
 	feedPort?.disconnect();
 	feedPort = undefined;
+	elements.videoFeed.textContent = "Start video feed";
 	elements.status.textContent = "Video feed stopped";
 }

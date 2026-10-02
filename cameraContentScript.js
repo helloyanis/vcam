@@ -10,13 +10,14 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
 
 const browserApi = globalThis.browser ?? globalThis.chrome;
 let backgroundPort;
+let bridgeToken;
 
 function connectToBackground() {
 	if (backgroundPort) return backgroundPort;
 	backgroundPort = browserApi.runtime.connect({ name: "vcam-page" });
 	backgroundPort.onMessage.addListener((message) => {
 		if (message.type === "frame" || message.type === "config") {
-			window.postMessage({ source: "vcam-extension", ...message }, "*");
+			window.postMessage({ type: "vcam-message", token: bridgeToken, message }, "*");
 		}
 	});
 	backgroundPort.onDisconnect.addListener(() => { backgroundPort = undefined; });
@@ -24,10 +25,9 @@ function connectToBackground() {
 }
 
 window.addEventListener("message", (event) => {
-	if (event.source !== window || event.data?.source !== "vcam-page") return;
+	if (event.source !== window || event.data?.type !== "vcam-request") return;
+	bridgeToken = event.data.token;
 	const port = connectToBackground();
-	if (event.data.type === "ready") port.postMessage({ type: "page-ready" });
-	if (event.data.type === "request-frame") port.postMessage({ type: "request-frame" });
+	if (event.data.action === "ready") port.postMessage({ type: "page-ready" });
+	if (event.data.action === "request-frame") port.postMessage({ type: "request-frame" });
 });
-
-connectToBackground().postMessage({ type: "page-ready" });

@@ -52,7 +52,6 @@
     },
     "action": {
         "default_icon": "icon.svg",
-        "default_title": "Configure vcam",
-        "default_popup": "popup/index.html"
+        "default_title": "Configure vcam"
     }
 }
