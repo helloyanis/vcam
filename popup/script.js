@@ -29,6 +29,7 @@ let feedCanvas;
 let feedContext;
 let feedPort;
 let feedTimer;
+let encodingFrame = false;
 
 const settings = await browserApi.storage.local.get(defaults);
 elements.enabled.checked = settings.enabled;
@@ -62,9 +63,9 @@ elements.videoFeed.addEventListener("click", async () => {
 		feedVideo.muted = true;
 		await feedVideo.play();
 		feedCanvas = document.createElement("canvas");
-		feedCanvas.width = 1280;
-		feedCanvas.height = 720;
-		feedContext = feedCanvas.getContext("2d");
+		feedCanvas.width = feedVideo.videoWidth;
+		feedCanvas.height = feedVideo.videoHeight;
+		feedContext = feedCanvas.getContext("2d", { alpha: false, desynchronized: true });
 		feedPort = browserApi.runtime.connect({ name: "vcam-feed" });
 		feedStream.getVideoTracks()[0].addEventListener("ended", stopFeed);
 		elements.status.textContent = "Video feed active";
@@ -77,17 +78,35 @@ elements.videoFeed.addEventListener("click", async () => {
 
 function sendFrame() {
 	if (!feedStream || feedVideo.readyState < 2 || !feedPort) return;
-	feedContext.drawImage(feedVideo, 0, 0, feedCanvas.width, feedCanvas.height);
-	feedCanvas.toBlob((blob) => {
-		if (blob && feedStream && feedPort) feedPort.postMessage({ type: "frame", frame: blob });
-	}, "image/jpeg", 0.7);
-	feedTimer = setTimeout(sendFrame, 66);
+	if (!encodingFrame) {
+		encodingFrame = true;
+		feedContext.drawImage(feedVideo, 0, 0, feedCanvas.width, feedCanvas.height);
+		feedCanvas.toBlob((blob) => {
+			encodingFrame = false;
+			if (blob && feedStream && feedPort) {
+				feedPort.postMessage({
+					type: "frame",
+					frame: blob,
+					width: feedCanvas.width,
+					height: feedCanvas.height
+				});
+			}
+			scheduleFrame();
+		}, "image/jpeg", 0.65);
+	}
+	if (!encodingFrame) scheduleFrame();
+}
+
+function scheduleFrame() {
+	if (!feedStream) return;
+	feedTimer = requestAnimationFrame(sendFrame);
 }
 
 function stopFeed() {
 	feedStream?.getTracks().forEach((track) => track.stop());
 	feedStream = undefined;
-	clearTimeout(feedTimer);
+	encodingFrame = false;
+	cancelAnimationFrame(feedTimer);
 	feedTimer = undefined;
 	feedPort?.disconnect();
 	feedPort = undefined;

@@ -17,7 +17,9 @@ const defaults = {
 };
 let settings = { ...defaults };
 let latestFrame = createPlaceholderFrame();
-const ports = new Set();
+let latestFrameWidth;
+let latestFrameHeight;
+const pagePorts = new Set();
 
 browserApi.action.onClicked.addListener(() => {
     if(navigator.userAgent.includes("Mobile;")){
@@ -44,22 +46,35 @@ browserApi.storage.onChanged.addListener((changes) => {
 });
 
 browserApi.runtime.onConnect.addListener((port) => {
-	ports.add(port);
+	if (port.name === "vcam-feed") {
+		port.onMessage.addListener((message) => {
+			if (message.type !== "frame") return;
+			latestFrame = message.frame;
+			latestFrameWidth = message.width;
+			latestFrameHeight = message.height;
+			broadcast({ type: "frame", frame: latestFrame, width: message.width, height: message.height });
+		});
+		return;
+	}
+	if (port.name !== "vcam-page") return;
+	pagePorts.add(port);
 	port.onMessage.addListener((message) => {
 		if (message.type === "frame") {
 			latestFrame = message.frame;
-			broadcast({ type: "frame", frame: latestFrame });
+			latestFrameWidth = message.width;
+			latestFrameHeight = message.height;
+			broadcast({ type: "frame", frame: latestFrame, width: message.width, height: message.height });
 		} else if (message.type === "page-ready" || message.type === "request-frame") {
 			port.postMessage({ type: "config", settings });
-				port.postMessage({ type: "frame", frame: latestFrame });
+			port.postMessage({ type: "frame", frame: latestFrame, width: latestFrameWidth, height: latestFrameHeight });
 		}
 	});
-	port.onDisconnect.addListener(() => ports.delete(port));
+	port.onDisconnect.addListener(() => pagePorts.delete(port));
 });
 
 function broadcast(message) {
-	for (const port of ports) {
-		try { port.postMessage(message); } catch { ports.delete(port); }
+	for (const port of pagePorts) {
+		try { port.postMessage(message); } catch { pagePorts.delete(port); }
 	}
 }
 

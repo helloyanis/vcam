@@ -11,6 +11,7 @@ let virtualContext;
 let virtualStream;
 let frameImage;
 let pendingFrame;
+let pendingFrameSize;
 
 window.addEventListener("message", (event) => {
     if (event.source !== window || event.data?.type !== "vcam-message" || event.data.token !== bridgeToken) return;
@@ -21,6 +22,7 @@ window.addEventListener("message", (event) => {
     }
     if (message.type === "frame") {
         pendingFrame = message.frame;
+        pendingFrameSize = { width: message.width, height: message.height };
         drawFrame();
     }
 });
@@ -64,12 +66,12 @@ function getVirtualStream(videoConstraints) {
         virtualCanvas = document.createElement("canvas");
         virtualCanvas.width = 1280;
         virtualCanvas.height = 720;
-        virtualContext = virtualCanvas.getContext("2d");
-        virtualStream = virtualCanvas.captureStream(30);
+        virtualContext = virtualCanvas.getContext("2d", { alpha: false, desynchronized: true });
+        virtualStream = virtualCanvas.captureStream(60);
         window.postMessage({ type: "vcam-request", token: bridgeToken, action: "request-frame" }, "*");
     }
-    const width = videoConstraints?.width?.ideal ?? videoConstraints?.width ?? 1280;
-    const height = videoConstraints?.height?.ideal ?? videoConstraints?.height ?? 720;
+    const width = videoConstraints?.width?.ideal ?? videoConstraints?.width ?? virtualCanvas.width;
+    const height = videoConstraints?.height?.ideal ?? videoConstraints?.height ?? virtualCanvas.height;
     for (const track of virtualStream.getVideoTracks()) {
         try { track.applyConstraints({ width, height }); } catch { /* Use canvas dimensions. */ }
     }
@@ -87,7 +89,14 @@ function shouldUseVirtualCamera(videoConstraints) {
 function drawFrame() {
     if (!virtualContext || !pendingFrame || frameImage) return;
     const frame = pendingFrame;
+    const frameSize = pendingFrameSize;
     pendingFrame = undefined;
+    pendingFrameSize = undefined;
+    if (frameSize?.width && frameSize?.height &&
+        (virtualCanvas.width !== frameSize.width || virtualCanvas.height !== frameSize.height)) {
+        virtualCanvas.width = frameSize.width;
+        virtualCanvas.height = frameSize.height;
+    }
     if (typeof frame === "string") {
         frameImage = new Image();
         frameImage.onload = () => {
