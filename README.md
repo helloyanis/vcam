@@ -1,9 +1,11 @@
-# vCam browser extension
+# vCam : Virtual Camera - browser extension
 
 > [!NOTE]  
 > This project is a prototype made with artificial intelligence. I just wanted to prototype the fact that you could make a virtual camera app from a browser extension, but it may be buggy or have some performance issues!
 
 Use any of your windows or tabs as camera output for websites to use!
+
+<a href="https://addons.mozilla.org/addon/vcam-virtual-camera?utm_source=github_readme"><img src="https://blog.mozilla.org/addons/files/2020/04/get-the-addon-fx-apr-2020.svg" alt="drawing" width="200"/></a>
 
 Install it, and open it to configure it!
 
